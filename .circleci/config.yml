@@ -1,194 +1,37 @@
 version: 2.1
 
 orbs:
-  android: circleci/android@2.5.0
-
-references:
-  workspace: &workspace
-               ~/src
-
-  load_workspace: &load_workspace
-    attach_workspace:
-      at: ~/
-
-  android_config: &android_config
-    working_directory: *workspace
-    environment:
-      TERM: dumb
-      _JAVA_OPTIONS: "-Xms3g -Xmx3g -XX:+UseParallelGC -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8"
-      GRADLE_OPTS: '-Dorg.gradle.parallel=3 -Dorg.gradle.caching=true -Dorg.gradle.configureondemand=true -Dorg.gradle.workers.max=3 -Dkotlin.compiler.execution.strategy=in-process -Dorg.gradle.jvmargs="-Xms2g -Xmx2g -XX:+UseParallelGC -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8"'
-
-  generate_gradle_cache_key: &generate_gradle_cache_key
-    run:
-      name: Generate gradle cache key
-      command: ci/scripts/generate_gradle_checksum.sh gradle_checksum.txt
-
-  restore_gradle_cache: &restore_gradle_cache
-    restore_cache:
-      name: Restore gradle cache
-      key: gradle-{{ checksum "gradle_checksum.txt" }}
-
-jobs:
-  setup:
-    <<: *android_config
-    executor:
-      name: android/android-machine
-      resource-class: large
-      tag: default
-    steps:
-      - checkout
-      - *generate_gradle_cache_key
-      - *restore_gradle_cache
-      - run:
-          name: Generate local.properties
-          command: ci/scripts/generate_local_properties.sh
-      - run:
-          name: Download android dependencies
-          command: ./gradlew androidDependencies
-      - save_cache:
-          key: gradle-{{ checksum "gradle_checksum.txt" }}
-          paths:
-            - ~/.gradle
-      - persist_to_workspace:
-          root: ~/
-          paths:
-            - src
-
-  code_linting:
-    <<: *android_config
-    executor:
-      name: android/android-machine
-      resource-class: large
-      tag: default
-    steps:
-      - *load_workspace
-      - *generate_gradle_cache_key
-      - *restore_gradle_cache
-      - run:
-          name: Run ktlint for code formatting
-          command: ./gradlew ktlintCheck
-      - persist_to_workspace:
-          root: ~/
-          paths:
-            - "src/**/build/reports/ktlint"
-      - run:
-          name: Run detekt for code smells
-          command: ./gradlew detektDebug detektDebugUnitTest detektDebugAndroidTest
-      - persist_to_workspace:
-          root: ~/
-          paths:
-            - "src/**/build/reports/detekt/detekt.xml"
-      - run:
-          name: Run android lint
-          command: ./gradlew lintDebug
-      - persist_to_workspace:
-          root: ~/
-          paths:
-            - "src/**/build/reports/lint-results-debug.xml"
-
-  unit_tests_and_screenshot_tests:
-    <<: *android_config
-    executor:
-      name: android/android-machine
-      resource-class: large
-      tag: default
-    steps:
-      - *load_workspace
-      - *generate_gradle_cache_key
-      - *restore_gradle_cache
-      - run:
-          name: Run unit/screenshot tests
-          command: ./gradlew verifyPaparazziDebug # It also runs unit tests: https://github.com/cashapp/paparazzi/issues/1161
-      - persist_to_workspace:
-          root: ~/
-          paths:
-            - "src/**/build/outputs/unit_test_code_coverage"
-            - "src/**/build/tmp/kotlin-classes/debug" # Kotlin files
-            - "src/**/build/intermediates/javac/debug/classes" # Java files if available
-      - run:
-          name: Save unit test results
-          command: |
-            mkdir -p ~/test-results/unit-tests/
-            find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/test-results/unit-tests/ \;
-          when: always
-      - store_test_results:
-          path: ~/test-results/unit-tests
-
-  ui_tests:
-    <<: *android_config
-    executor:
-      name: android/android-machine
-      resource-class: large
-      tag: default
-    steps:
-      - *load_workspace
-      - *generate_gradle_cache_key
-      - *restore_gradle_cache
-      - android/accept-licenses
-      - android/create-avd:
-          avd-name: TestAVD
-          install: true
-          system-image: system-images;android-33;google_apis;x86_64
-      - android/start-emulator:
-          avd-name: TestAVD
-          no-window: true
-          post-emulator-launch-assemble-command: ./gradlew assembleDebugAndroidTest
-          restore-gradle-cache-prefix: v1a
-      - android/run-tests:
-          max-tries: 3
-          no-output-timeout: 5m
-          test-command: ./gradlew connectedDebugAndroidTest
-      - android/save-gradle-cache:
-          cache-prefix: v1a
-      - persist_to_workspace:
-          root: ~/
-          paths:
-            - "src/**/build/outputs/code_coverage"
-      - run:
-          name: Save ui test results
-          command: |
-            mkdir -p ~/test-results/ui-tests/
-            find . -type f -regex ".*/build/outputs/androidTest-results/connected/.*xml" -exec cp {} ~/test-results/ui-tests/ \;
-          when: always
-      - store_test_results:
-          path: ~/test-results/ui-tests
-
-  code_coverage:
-    <<: *android_config
-    executor:
-      name: android/android-machine
-      resource-class: medium
-      tag: default
-    steps:
-      - *load_workspace
-      - *generate_gradle_cache_key
-      - *restore_gradle_cache
-      - run:
-          name: Generate code coverage (Jacoco)
-          command: ./gradlew generateCodeCoverage
-      - persist_to_workspace:
-          root: ~/
-          paths:
-            - "src/**/build/reports/jacoco/jacoco.xml"
+  # For testing purposes, this will be removed later.
+  automation: willian-gama/android-ci@dev:chore/cache
 
 workflows:
   build_and_test:
     jobs:
-      - setup:
+      - automation/android_setup:
+          build_variant: debug
           filters:
             branches:
               only:
-                - chore/circleci
-      - code_linting:
+                - chore/circleci-orb
+      - automation/unit_tests:
+          build_variant: debug
+          parallelism: 2
           requires:
-            - setup
-      - unit_tests_and_screenshot_tests:
+            - automation/android_setup
+      - automation/screenshot_tests:
+          build_variant: debug
           requires:
-            - setup
-      - ui_tests:
+            - automation/android_setup
+      - automation/ui_tests:
+          build_variant: debug
+          parallelism: 1
           requires:
-            - setup
-      - code_coverage:
+            - automation/android_setup
+      - automation/code_linting:
+          build_variant: debug
           requires:
-            - unit_tests_and_screenshot_tests
-            - ui_tests
+            - automation/android_setup
+      - automation/code_coverage:
+          requires:
+            - automation/unit_tests
+            - automation/ui_tests

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 LOCAL_PROPERTIES="local.properties"
 export LOCAL_PROPERTIES

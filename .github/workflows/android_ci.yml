@@ -36,7 +36,7 @@ jobs:
         uses: gradle/gradle-build-action@v3
 
       - name: create local.properties from secret variables
-        run: scripts/generate_local_properties.sh
+        run: orb/scripts/generate_user_properties.sh
 
       # KtLint
       - name: run ktlintCheck
@@ -81,7 +81,7 @@ jobs:
         uses: gradle/gradle-build-action@v3
 
       - name: create local.properties from secret variables
-        run: scripts/generate_local_properties.sh
+        run: orb/scripts/generate_user_properties.sh
 
       # Run unit tests: https://developer.android.com/studio/test/command-line#run-tests-build-variants
       - name: run unit tests
@@ -114,7 +114,7 @@ jobs:
         uses: gradle/gradle-build-action@v3
 
       - name: create local.properties from secret variables
-        run: scripts/generate_local_properties.sh
+        run: orb/scripts/generate_user_properties.sh
 
       # Run unit tests: https://developer.android.com/studio/test/command-line#run-tests-build-variants
       - name: run screenshot tests
@@ -133,7 +133,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api-level: [ 26, 28 ]
+        api-level: [ 29 ]
     steps:
       - name: checkout project sources
         uses: actions/checkout@v4
@@ -148,7 +148,7 @@ jobs:
           java-version: '20'
 
       - name: create local.properties from secret variables
-        run: scripts/generate_local_properties.sh
+        run: orb/scripts/generate_user_properties.sh
 
       - name: setup gradle
         uses: gradle/gradle-build-action@v3

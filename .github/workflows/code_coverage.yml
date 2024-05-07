@@ -36,7 +36,7 @@ jobs:
           java-version: '20'
 
       - name: create local.properties from secret variables
-        run: scripts/generate_local_properties.sh
+        run: orb/scripts/generate_user_properties.sh
 
       - name: setup gradle
         uses: gradle/gradle-build-action@v3
